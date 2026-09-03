@@ -1,0 +1,23 @@
+<main class="home">
+  <h1>Daily Photo Competition</h1>
+  <p class="subtitle">Angular client &rarr; Express API connectivity check</p>
+
+  <section class="card">
+    <h2><code>GET /api/health</code></h2>
+
+    @if (loading()) {
+      <p class="status status--pending">Checking&hellip;</p>
+    } @else if (error(); as message) {
+      <p class="status status--error">{{ message }}</p>
+    } @else if (health(); as result) {
+      <p class="status status--ok">
+        Connected &mdash; status: <strong>{{ result.status }}</strong>
+      </p>
+      <pre>{{ result | json }}</pre>
+    } @else {
+      <p class="status">No result yet.</p>
+    }
+
+    <button type="button" (click)="checkHealth()" [disabled]="loading()">Check again</button>
+  </section>
+</main>
