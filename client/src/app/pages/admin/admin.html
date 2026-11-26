@@ -1,0 +1,129 @@
+<h1>Admin</h1>
+
+@if (error()) {
+  <p class="notice notice--error" role="alert">{{ error() }}</p>
+}
+
+@if (!session.isAdmin()) {
+  <section class="card narrow">
+    <h2>Unlock admin tools</h2>
+    <p class="muted small">Admins start competitions, open voting, and close polls.</p>
+    <form class="row" (submit)="$event.preventDefault(); unlock()">
+      <input
+        #pc
+        type="password"
+        [value]="passcode()"
+        (input)="passcode.set(pc.value)"
+        placeholder="Admin passcode"
+        aria-label="Admin passcode"
+        autocomplete="current-password"
+      />
+      <button class="btn btn--primary" [disabled]="!passcode() || busy()">Unlock</button>
+    </form>
+  </section>
+} @else {
+  <div class="admin-grid">
+    <section class="card">
+      <h2>Start a weekend competition</h2>
+      <form class="stack" (submit)="$event.preventDefault(); createWeekly()">
+        <label>
+          <span class="small">Weekend (Saturday)</span>
+          <input #wk type="date" [value]="weekOf()" (input)="weekOf.set(wk.value)" required />
+        </label>
+        <label>
+          <span class="small">Theme (optional)</span>
+          <input
+            #th
+            [value]="theme()"
+            (input)="theme.set(th.value)"
+            placeholder="e.g. Reflections"
+            maxlength="60"
+          />
+        </label>
+        <button class="btn btn--primary" [disabled]="!weekOf() || busy()">Open submissions</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Start the monthly final</h2>
+      <form class="stack" (submit)="$event.preventDefault(); createMonthly()">
+        <label>
+          <span class="small">Month</span>
+          <input #mo type="month" [value]="month()" (input)="month.set(mo.value)" required />
+        </label>
+        @let plan = monthPlan();
+        @if (plan.existing) {
+          <p class="small">
+            {{ plan.label }} already has a final.
+            <a [routerLink]="['/poll', plan.existing.id]">Go to it →</a>
+          </p>
+        } @else {
+          <p class="small muted">
+            {{ plan.winners.length }} weekly
+            {{ plan.winners.length === 1 ? 'winner' : 'winners' }} in {{ plan.label }}:
+            {{ plan.winners.length ? '' : 'none yet' }}
+          </p>
+          @if (plan.winners.length) {
+            <ul class="small plain">
+              @for (w of plan.winners; track w.id) {
+                <li>{{ w.winner!.member.name }} · {{ w.title }}</li>
+              }
+            </ul>
+          }
+          @if (plan.unfinished.length) {
+            <p class="small warn">
+              Finish first:
+              @for (u of plan.unfinished; track u.id; let last = $last) {
+                <a [routerLink]="['/poll', u.id]">{{ u.title }}</a
+                >{{ last ? '' : ', ' }}
+              }
+            </p>
+          }
+          @if (plan.comingUp.length) {
+            <p class="small warn">
+              {{ plan.label }} still has
+              {{ plan.comingUp.length === 1 ? 'a weekend' : 'weekends' }} to come:
+              @for (s of plan.comingUp; track s; let last = $last) {
+                {{ s | date: 'EEE d MMM' }}{{ last ? '.' : ', ' }}
+              }
+              Once the final starts, no more weekend competitions can be added to this month.
+            </p>
+          }
+        }
+        <button
+          class="btn btn--primary"
+          [disabled]="
+            busy() || !!plan.existing || plan.unfinished.length > 0 || plan.winners.length < 2
+          "
+        >
+          Open the final vote
+        </button>
+      </form>
+    </section>
+  </div>
+
+  <section class="section">
+    <h2>Open polls</h2>
+    @if (active().length) {
+      <ul class="poll-list">
+        @for (p of active(); track p.id) {
+          <li>
+            <a [routerLink]="['/poll', p.id]">
+              <app-status-badge [poll]="p" />
+              <span>{{ p.title }}</span>
+              <span class="small muted">
+                {{ p.entryCount }} photos{{
+                  p.status === 'voting' ? ' · ' + p.voterCount + ' voted' : ''
+                }}
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="muted">No open polls.</p>
+    }
+  </section>
+
+  <button class="link small" (click)="lock()">Lock admin tools on this device</button>
+}

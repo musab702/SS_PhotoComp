@@ -1,1 +1,24 @@
-<app-home />
+<header class="topbar">
+  <div class="topbar__inner">
+    <a routerLink="/" class="brand">
+      <span class="brand__mark" aria-hidden="true">◐</span>
+      Creatives Photo Comp
+    </a>
+    <nav class="topbar__nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        Competitions
+      </a>
+      <a routerLink="/admin" routerLinkActive="active">
+        Admin
+        @if (session.isAdmin()) {
+          <span class="dot" aria-label="unlocked"></span>
+        }
+      </a>
+    </nav>
+    <div class="topbar__me"><app-identity /></div>
+  </div>
+</header>
+
+<main class="page">
+  <router-outlet />
+</main>
