@@ -1,0 +1,80 @@
+@if (error()) {
+  <p class="notice notice--error">{{ error() }}</p>
+} @else if (polls() === null) {
+  <p class="muted">Loading…</p>
+} @else {
+  <section class="section">
+    <h1>Happening now</h1>
+    @if (live().length) {
+      <div class="live-list">
+        @for (p of live(); track p.id) {
+          <a class="live-card" [routerLink]="['/poll', p.id]">
+            <div>
+              <app-status-badge [poll]="p" />
+              <h2 class="live-card__title">{{ p.title }}</h2>
+              <p class="muted small">
+                @if (p.status === 'submissions') {
+                  {{ p.entryCount }} {{ p.entryCount === 1 ? 'photo' : 'photos' }} in so far
+                } @else {
+                  {{ p.entryCount }} photos · {{ p.voterCount }}
+                  {{ p.voterCount === 1 ? 'person has' : 'people have' }} voted
+                }
+              </p>
+            </div>
+            <span class="btn btn--primary">
+              {{ p.status === 'submissions' ? 'Submit a photo' : 'Vote now' }}
+            </span>
+          </a>
+        }
+      </div>
+    } @else {
+      <div class="empty">
+        <p>Nothing open right now.</p>
+        @if (session.isAdmin()) {
+          <a routerLink="/admin" class="btn">Start this weekend's competition</a>
+        } @else {
+          <p class="muted small">An admin will open the next weekend's competition.</p>
+        }
+      </div>
+    }
+  </section>
+
+  @for (g of months(); track g.month) {
+    <section class="section">
+      <h2 class="month-title">{{ g.label }}</h2>
+
+      @if (g.champion?.winner; as w) {
+        <a class="champion" [routerLink]="['/poll', g.champion!.id]">
+          <img [src]="w.photoUrl" [alt]="w.caption || 'Photo of the month'" loading="lazy" />
+          <div class="champion__text">
+            <span class="eyebrow">🏆 Photo of the Month</span>
+            <strong class="champion__name">{{ w.member.name }}</strong>
+            @if (w.caption) {
+              <span class="champion__caption">“{{ w.caption }}”</span>
+            }
+          </div>
+        </a>
+      }
+
+      <div class="grid">
+        @for (p of g.weeks; track p.id) {
+          <a class="tile" [routerLink]="['/poll', p.id]">
+            @if (p.winner; as w) {
+              <img [src]="w.photoUrl" [alt]="w.caption || 'Winning photo'" loading="lazy" />
+              <div class="tile__body">
+                <span class="small muted">{{ p.title }}</span>
+                <strong>🥇 {{ w.member.name }}</strong>
+              </div>
+            } @else {
+              <div class="tile__placeholder"><app-status-badge [poll]="p" /></div>
+              <div class="tile__body">
+                <span class="small muted">{{ p.title }}</span>
+                <span class="small">{{ p.entryCount }} photos</span>
+              </div>
+            }
+          </a>
+        }
+      </div>
+    </section>
+  }
+}

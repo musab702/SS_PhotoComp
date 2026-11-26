@@ -1,0 +1,198 @@
+<a routerLink="/" class="back">← All competitions</a>
+
+@if (poll(); as p) {
+  <header class="poll-head">
+    <app-status-badge [poll]="p" />
+    <h1>{{ p.title }}</h1>
+    <p class="muted">
+      @switch (p.status) {
+        @case ('submissions') {
+          Submit one photo each. You can replace it until voting opens. Photos stay anonymous until
+          the results.
+        }
+        @case ('voting') {
+          @if (p.kind === 'tiebreak') {
+            The last vote was a tie, so this re-vote has only the tied photos.
+          }
+          Pick your favourite. One vote each, and not your own. {{ p.voterCount }}
+          {{ p.voterCount === 1 ? 'person has' : 'people have' }} voted.
+        }
+        @case ('tied') {
+          This vote ended in a tie and is being settled by a re-vote.
+        }
+        @case ('closed') {
+          Voting is closed. Here's how everyone voted.
+        }
+      }
+    </p>
+    @if (p.parentId) {
+      <a [routerLink]="['/poll', p.parentId]" class="small">← Back to the original vote</a>
+    }
+  </header>
+
+  @if (p.status === 'tied' && p.tiebreakId) {
+    <a class="notice notice--tie" [routerLink]="['/poll', p.tiebreakId]">
+      It's a tie! <strong>Go to the tie-break vote →</strong>
+    </a>
+  }
+
+  @if (notice()) {
+    <p class="notice notice--ok" role="status">{{ notice() }}</p>
+  }
+  @if (error()) {
+    <p class="notice notice--error" role="alert">{{ error() }}</p>
+  }
+
+  @if (session.isAdmin() && (p.status === 'submissions' || p.status === 'voting')) {
+    <div class="admin-bar">
+      <span class="small"><strong>Admin</strong></span>
+      @if (p.status === 'submissions') {
+        <button class="btn" (click)="openVoting()" [disabled]="busy() || p.entryCount < 2">
+          Close submissions &amp; open voting
+        </button>
+        @if (p.entryCount < 2) {
+          <span class="small muted">Needs at least 2 photos.</span>
+        }
+      }
+      @if (p.status === 'voting') {
+        <button class="btn" (click)="close()" [disabled]="busy() || p.voterCount === 0">
+          Close voting &amp; reveal results
+        </button>
+      }
+    </div>
+  }
+
+  <!-- Winner -->
+  @if (p.status === 'closed' && p.winner; as w) {
+    <section class="winner">
+      <img [src]="w.photoUrl" [alt]="w.caption || 'Winning photo'" />
+      <div class="winner__text">
+        <span class="eyebrow">
+          {{ p.kind === 'monthly' ? '🏆 Photo of the Month' : '🥇 Winner' }}
+        </span>
+        <strong class="winner__name">{{ w.member.name }}</strong>
+        @if (w.caption) {
+          <span class="muted">“{{ w.caption }}”</span>
+        }
+        @if (p.tiebreakId) {
+          <a class="small" [routerLink]="['/poll', p.tiebreakId]">Won the tie-break re-vote →</a>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- Submit -->
+  @if (p.status === 'submissions') {
+    <section class="card submit">
+      @if (!session.member()) {
+        <p>Pick your name at the top of the page to submit a photo.</p>
+      } @else {
+        <h2>{{ myEntry() ? 'Replace your photo' : 'Submit your photo' }}</h2>
+        <form (submit)="$event.preventDefault(); submit()">
+          <label class="drop">
+            @if (preview()) {
+              <img [src]="preview()" alt="Selected photo preview" />
+            } @else {
+              <span
+                >Choose a photo<br /><span class="small muted"
+                  >JPEG, PNG, WebP or HEIC · up to 20 MB</span
+                ></span
+              >
+            }
+            <input #fileInput type="file" accept="image/*" (change)="pickFile(fileInput)" />
+          </label>
+          <input
+            #captionInput
+            [value]="caption()"
+            (input)="caption.set(captionInput.value)"
+            placeholder="Title or caption (optional)"
+            maxlength="200"
+            aria-label="Caption"
+          />
+          <button class="btn btn--primary" [disabled]="!file() || busy()">
+            {{ busy() ? 'Uploading…' : myEntry() ? 'Replace photo' : 'Submit photo' }}
+          </button>
+        </form>
+      }
+    </section>
+  }
+
+  @if (p.status === 'voting' && !session.member()) {
+    <p class="notice">Pick your name at the top of the page to vote.</p>
+  }
+
+  <!-- Entries -->
+  @if (p.entries.length) {
+    <section class="grid grid--entries">
+      @for (e of p.entries; track e.id; let i = $index) {
+        <figure
+          class="entry"
+          [class.entry--voted]="e.id === p.myVoteEntryId"
+          [class.entry--winner]="e.isWinner"
+        >
+          <button
+            type="button"
+            class="entry__img"
+            (click)="viewing.set(e)"
+            aria-label="View larger"
+          >
+            <img [src]="e.photoUrl" [alt]="e.caption || 'Photo ' + (i + 1)" loading="lazy" />
+          </button>
+          <figcaption>
+            <div class="entry__meta">
+              @if (e.member) {
+                <strong>{{ e.isWinner ? '🥇 ' : '' }}{{ e.member.name }}</strong>
+              } @else {
+                <strong>Photo {{ i + 1 }}</strong>
+              }
+              @if (e.votes !== undefined) {
+                <span class="votes">{{ e.votes }} {{ e.votes === 1 ? 'vote' : 'votes' }}</span>
+              }
+            </div>
+            @if (e.caption) {
+              <span class="small muted">“{{ e.caption }}”</span>
+            }
+            @if (e.mine && p.status !== 'closed') {
+              <span class="tag">Your photo</span>
+            }
+            @if (p.status === 'voting' && session.member() && !e.mine) {
+              <button
+                class="btn btn--sm"
+                [class.btn--primary]="e.id !== p.myVoteEntryId"
+                [class.btn--chosen]="e.id === p.myVoteEntryId"
+                [disabled]="busy() || e.id === p.myVoteEntryId"
+                (click)="vote(e)"
+              >
+                {{ e.id === p.myVoteEntryId ? '✓ Your vote' : 'Vote for this' }}
+              </button>
+            }
+            @if (session.isAdmin() && p.status === 'submissions') {
+              <button class="link small danger" (click)="remove(e)">Remove</button>
+            }
+          </figcaption>
+        </figure>
+      }
+    </section>
+  } @else if (p.status === 'submissions') {
+    <p class="muted">No photos yet. Be the first!</p>
+  }
+
+  @if (viewing(); as v) {
+    <div
+      class="lightbox"
+      (click)="viewing.set(null)"
+      (keydown.escape)="viewing.set(null)"
+      tabindex="-1"
+    >
+      <img [src]="v.photoUrl" [alt]="v.caption || 'Photo'" />
+      @if (v.caption) {
+        <p>{{ v.caption }}</p>
+      }
+      <button class="lightbox__close" (click)="viewing.set(null)" aria-label="Close">✕</button>
+    </div>
+  }
+} @else if (error()) {
+  <p class="notice notice--error">{{ error() }}</p>
+} @else {
+  <p class="muted">Loading…</p>
+}
